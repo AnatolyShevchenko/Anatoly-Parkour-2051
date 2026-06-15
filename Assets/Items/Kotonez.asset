@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 518ad5f1fc65b754ca7caa3b40419d63, type: 3}
+  m_Name: Kotonez
+  m_EditorClassIdentifier: Assembly-CSharp::ItemData
+  itemName: Kotonez
+  itemIcon: {fileID: 21300000, guid: a052e00c385deae48afa6632753e0b03, type: 3}
+  itemPrefab: {fileID: 8533981371018112482, guid: f9e506bea55180d46a797fee54886617, type: 3}
