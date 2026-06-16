@@ -3,11 +3,16 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 
+[RequireComponent(typeof(AudioSource))]
 public class KotonezItem : MonoBehaviour
 {
     [Header("Настройки удержания (Поедание)")]
     public float holdDuration = 2.0f;
     private float currentHoldTime = 0.0f;
+
+    [Header("Звуковые эффекты")]
+    [Tooltip("Звук, который будет циклично играть, ПОКА зажата кнопка поедания")]
+    public AudioClip eatingLoopSound;
 
     [Header("Настройки затухания экрана")]
     public float fadeDuration = 2.5f;
@@ -25,10 +30,13 @@ public class KotonezItem : MonoBehaviour
 
     private PlayerInventory inventory;
     private PlayerMovement movement;
-    private Slider uiProgressBar;
+
+    // ИСПРАВЛЕНО: Теперь используем Image вместо Slider для эффекта "бублика"
+    private Image uiProgressCircle;
 
     private Graphic fadeGraphic;
     private bool isTriggered = false;
+    private AudioSource audioSource;
 
     void Start()
     {
@@ -36,11 +44,24 @@ public class KotonezItem : MonoBehaviour
         movement = GetComponentInParent<PlayerMovement>();
         originalLocalPos = transform.localPosition;
 
-        GameObject sliderObj = GameObject.Find("UseProgressBar");
-        if (sliderObj != null)
+        audioSource = GetComponent<AudioSource>();
+        audioSource.playOnAwake = false;
+        audioSource.loop = true;
+        if (eatingLoopSound != null)
         {
-            uiProgressBar = sliderObj.GetComponent<Slider>();
-            uiProgressBar.gameObject.SetActive(false);
+            audioSource.clip = eatingLoopSound;
+        }
+
+        // ИСПРАВЛЕНО: Ищем наш круглый индикатор по имени UseProgressCircle
+        GameObject circleObj = GameObject.Find("UseProgressCircle");
+        if (circleObj != null)
+        {
+            uiProgressCircle = circleObj.GetComponent<Image>();
+            uiProgressCircle.gameObject.SetActive(false);
+        }
+        else
+        {
+            Debug.LogWarning("[КотонеZ] Не найден UI объект с именем 'UseProgressCircle'!");
         }
 
         SetupFadeScreen();
@@ -80,13 +101,19 @@ public class KotonezItem : MonoBehaviour
         {
             currentHoldTime += Time.deltaTime;
 
+            if (audioSource.clip != null && !audioSource.isPlaying)
+            {
+                audioSource.Play();
+            }
+
             float progress = currentHoldTime / holdDuration;
             transform.localPosition = Vector3.Lerp(originalLocalPos, originalLocalPos + eatingPositionOffset, progress);
 
-            if (uiProgressBar != null)
+            // ИСПРАВЛЕНО: Заполняем "бублик" через fillAmount (значение от 0.0f до 1.0f)
+            if (uiProgressCircle != null)
             {
-                uiProgressBar.gameObject.SetActive(true);
-                uiProgressBar.value = progress;
+                uiProgressCircle.gameObject.SetActive(true);
+                uiProgressCircle.fillAmount = progress;
             }
 
             if (currentHoldTime >= holdDuration)
@@ -108,14 +135,23 @@ public class KotonezItem : MonoBehaviour
             transform.localPosition = originalLocalPos;
         }
 
+        if (audioSource != null && audioSource.isPlaying)
+        {
+            audioSource.Stop();
+        }
+
         currentHoldTime = 0f;
-        if (uiProgressBar != null) uiProgressBar.gameObject.SetActive(false);
+
+        // ИСПРАВЛЕНО: Прячем круг при отмене
+        if (uiProgressCircle != null) uiProgressCircle.gameObject.SetActive(false);
     }
 
     private IEnumerator TriggerTripRoutine()
     {
         isTriggered = true;
-        ResetProgress();
+
+        // Прячем заполняющийся кружок, так как Анатолий уже всё съел
+        if (uiProgressCircle != null) uiProgressCircle.gameObject.SetActive(false);
 
         if (inventory != null) inventory.BlockInputForTrip();
 
@@ -168,7 +204,8 @@ public class KotonezItem : MonoBehaviour
 
         yield return new WaitForEndOfFrame();
 
-        // ИСПРАВЛЕНО: Сначала запускаем аддитивную сцену
+        if (audioSource != null) audioSource.Stop();
+
         if (GameSceneManager.Instance != null)
         {
             GameSceneManager.Instance.StartParkour(targetSceneName);
@@ -178,15 +215,12 @@ public class KotonezItem : MonoBehaviour
             SceneManager.LoadScene(targetSceneName);
         }
 
-        // ИСПРАВЛЕНО: Передаем СЕБЯ (конкретный экземпляр) инвентарю на съедение.
-        // Инвентарь удалит только этот конкретный игровой объект, а банку во 2 слоте оставит в покое!
         if (inventory != null)
         {
             inventory.ConsumeSpecificItem(gameObject);
         }
         else
         {
-            // На всякий случай, если инвентарь пропал
             Destroy(gameObject);
         }
     }
