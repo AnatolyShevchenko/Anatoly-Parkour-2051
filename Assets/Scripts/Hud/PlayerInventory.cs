@@ -5,6 +5,8 @@ using UnityEngine.UI;
 public class PlayerInventory : MonoBehaviour
 {
     [Header("Окна UI")]
+    // ИЗМЕНЕНО: Сменили тип на GameObject, чтобы Unity принимала абсолютно любой объект (Panel, Image, RawImage)
+    public GameObject globalFadeScreen;
     public GameObject inventoryPanel;
 
     [Header("Визуальные ячейки HUD (Рамочки быстрых slots)")]
@@ -37,12 +39,68 @@ public class PlayerInventory : MonoBehaviour
     // СИСТЕМА АНИМАЦИИ
     private Vector3 defaultHandPos;
     private bool isSwitchingItem = false;
-    private ItemData lastActiveItem;      // НОВОЕ: Следит за тем, что БЫЛО в руке кадр назад
+    private ItemData lastActiveItem;      // Следит за тем, что БЫЛО в руке кадр назад
 
     private int activeQuickSlot = 0;
     private bool isInventoryOpen = false;
 
+    // БЛОКИРОВКА ИНВЕНТАРЯ ПРИ ТРИПЕ
+    private bool isInputBlockedByTrip = false;
+
     private PlayerMovement movementScript;
+
+    // ==========================================
+    // Свойства для внешних скриптов предметов
+    // ==========================================
+    public bool IsInventoryOpen => isInventoryOpen;
+    public bool IsSwitchingItem => isSwitchingItem;
+
+    // Метод очистки слота, который вызывает KotonezItem
+    public void ClearActiveSlot()
+    {
+        // 1. Запоминаем, какой именно предмет Анатолий сейчас держит/ест
+        ItemData itemToRemove = quickSlots[activeQuickSlot];
+
+        // 2. Очищаем текущий активный слот
+        quickSlots[activeQuickSlot] = null;
+
+        // 3. БУЛЛЕТПРУФ-ПРОВЕРКА: Если игрок переключил слот во время затухания экрана,
+        // мы все равно находим этот съеденный предмет во ВСЕМ инвентаре и уничтожаем его данные,
+        // чтобы он не остался в рюкзаке или соседних ячейках.
+        if (itemToRemove != null)
+        {
+            for (int i = 0; i < quickSlots.Length; i++)
+            {
+                if (quickSlots[i] == itemToRemove) quickSlots[i] = null;
+            }
+            for (int i = 0; i < backpackSlots.Length; i++)
+            {
+                if (backpackSlots[i] == itemToRemove) backpackSlots[i] = null;
+            }
+        }
+
+        // Обновляем UI, что мгновенно сотрет иконку и уберет трехмерную модельку
+        RefreshUI(false);
+    }
+
+    // Новый метод, который вызывается из KotonezItem в момент начала затухания
+    public void BlockInputForTrip()
+    {
+        isInputBlockedByTrip = true;
+
+        // Если инвентарь был открыт в момент поглощения — принудительно закрываем его
+        if (isInventoryOpen)
+        {
+            isInventoryOpen = false;
+            if (inventoryPanel != null) inventoryPanel.SetActive(false);
+        }
+    }
+
+    public void UnblockInputAfterTrip()
+    {
+        isInputBlockedByTrip = false;
+    }
+    // ==========================================
 
     void Start()
     {
@@ -54,7 +112,7 @@ public class PlayerInventory : MonoBehaviour
             defaultHandPos = handTransform.localPosition;
         }
 
-        // НОВОЕ: Запоминаем стартовый предмет, чтобы не устраивать анимацию при загрузке игры
+        // Запоминаем стартовый предмет, чтобы не устраивать анимацию при загрузке игры
         lastActiveItem = quickSlots[activeQuickSlot];
 
         // Синхронизируем интерфейс и руки на старте
@@ -63,8 +121,19 @@ public class PlayerInventory : MonoBehaviour
 
     void Update()
     {
+        // ГЛОБАЛЬНЫЙ ЗАПРЕТ ВВОДА: Если Анатолий под котонезом — клавиатура и мышь для инвентаря полностью мертвы
+        if (isInputBlockedByTrip) return;
+
+        // Открытие/закрытие инвентаря на Tab
         if (Input.GetKeyDown(KeyCode.Tab)) ToggleInventory();
 
+        // Если инвентарь открыт и игрок нажимает Esc — закрываем его
+        if (isInventoryOpen && Input.GetKeyDown(KeyCode.Escape))
+        {
+            ToggleInventory();
+        }
+
+        // Блокируем игровой ввод игрока, если открыт инвентарь
         if (isInventoryOpen) return;
 
         if (Input.GetKeyDown(KeyCode.Alpha1)) SelectQuickSlot(0);
@@ -220,7 +289,7 @@ public class PlayerInventory : MonoBehaviour
         ItemData activeItem = quickSlots[activeQuickSlot];
 
         // ==========================================
-        // НОВОЕ: ГЛОБАЛЬНЫЙ ПЕРЕХВАТЧИК ИЗМЕНЕНИЙ В РУКЕ
+        // ГЛОБАЛЬНЫЙ ПЕРЕХВАТЧИК ИЗМЕНЕНИЙ В РУКЕ
         // ==========================================
         if (activeItem != lastActiveItem)
         {
@@ -248,7 +317,7 @@ public class PlayerInventory : MonoBehaviour
             }
         }
 
-        // --- Стандартный код спавна модельки ---
+        // --- Измененный код спавна модельки с учетом смещений ---
         if (currentInHandObject != null)
         {
             Destroy(currentInHandObject);
@@ -258,9 +327,18 @@ public class PlayerInventory : MonoBehaviour
         {
             currentInHandObject = Instantiate(activeItem.itemPrefab, handTransform);
 
-            currentInHandObject.transform.localPosition = Vector3.zero;
-            currentInHandObject.transform.localRotation = Quaternion.identity;
+            // ИЗМЕНЕНО: Достаем компонент Image из переданного GameObject и отдаем скрипту майонеза
+            KotonezItem kotonezScript = currentInHandObject.GetComponent<KotonezItem>();
+            if (kotonezScript != null && globalFadeScreen != null)
+            {
+                kotonezScript.fadeScreen = globalFadeScreen.gameObject;
+            }
 
+            // Применяем индивидуальные координаты и углы поворота из файла ItemData
+            currentInHandObject.transform.localPosition = activeItem.handPositionOffset;
+            currentInHandObject.transform.localRotation = Quaternion.Euler(activeItem.handRotationOffset);
+
+            // Убеждаемся, что физика не мешает отображению в руке
             Rigidbody itemRb = currentInHandObject.GetComponent<Rigidbody>();
             if (itemRb != null) itemRb.isKinematic = true;
 
@@ -296,6 +374,7 @@ public class PlayerInventory : MonoBehaviour
         Debug.LogWarning("Нет места!");
         return false;
     }
+
     void AnimateSlotScales()
     {
         for (int i = 0; i < hudSlotImages.Length; i++)

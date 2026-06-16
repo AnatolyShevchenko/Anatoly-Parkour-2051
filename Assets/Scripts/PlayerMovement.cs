@@ -49,14 +49,15 @@ public class PlayerMovement : MonoBehaviour
     private CapsuleCollider capsuleCollider;
     private Camera actualCamera;
 
-    // Rotation tracking variables
     private float xRotation = 0f;
-    private float yRotation = 0f; // NEW: Tracks horizontal look independently from Rigidbody
+    private float yRotation = 0f;
 
-    // Movement input cache variables
     private float moveX;
     private float moveZ;
     private bool isMoving;
+
+    private Vector3 wallNormal;
+    private bool touchingWall;
 
     void Start()
     {
@@ -81,11 +82,10 @@ public class PlayerMovement : MonoBehaviour
     {
         if (anatolyCamera == null) return;
 
-        // === 1. CAMERA ROTATION (300 FPS Look) ===
+        // === 1. CAMERA ROTATION ===
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity;
         float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity;
 
-        // Rotate the camera object directly on both axes, leaving the root Rigidbody untouched
         yRotation += mouseX;
         xRotation -= mouseY;
         xRotation = Mathf.Clamp(xRotation, -90f, 90f);
@@ -138,7 +138,6 @@ public class PlayerMovement : MonoBehaviour
             float newCameraX = defaultCameraX + Mathf.Cos(bobTimer / 2) * bobHorizontalAmount;
             float newCameraY = currentCameraY + Mathf.Sin(bobTimer) * bobVerticalAmount;
 
-            // Apply position while preserving the Update rotation logic
             anatolyCamera.localPosition = new Vector3(newCameraX, newCameraY, anatolyCamera.localPosition.z);
         }
         else
@@ -174,7 +173,10 @@ public class PlayerMovement : MonoBehaviour
     // === 6. PHYSICS APPLICATOR (FixedUpdate) ===
     void FixedUpdate()
     {
-        isGrounded = Physics.Raycast(transform.position, Vector3.down, 1.1f);
+        float radius = capsuleCollider.radius * 0.85f;
+        float castLength = (capsuleCollider.height * 0.5f) - radius + 0.15f;
+        isGrounded = Physics.SphereCast(transform.position, radius, Vector3.down, out _, castLength, Physics.AllLayers, QueryTriggerInteraction.Ignore);
+
         isMoving = (Mathf.Abs(moveX) > 0.1f || Mathf.Abs(moveZ) > 0.1f) && isGrounded;
 
         if (jumpRequested)
@@ -183,7 +185,6 @@ public class PlayerMovement : MonoBehaviour
             jumpRequested = false;
         }
 
-        // NEW: Calculate direction based on camera vectors projected onto the ground plane
         Vector3 camForward = anatolyCamera.forward;
         camForward.y = 0f;
         camForward.Normalize();
@@ -192,12 +193,34 @@ public class PlayerMovement : MonoBehaviour
         camRight.y = 0f;
         camRight.Normalize();
 
-        // Moving relative to where Anatoly is looking
         Vector3 moveDirection = (camRight * moveX) + (camForward * moveZ);
-        Vector3 velocity = moveDirection * currentSpeed;
 
+        // ИСПРАВЛЕНО: Убрали дикую нормализацию вектора!
+        // Теперь мы просто вычитаем силу, которая давит СКВОЗЬ стену. 
+        // Если бежишь прямо — Анатолий упрется и остановится. Если прыгнул на стену — плавно сползет вниз без застреваний.
+        if (touchingWall && Vector3.Dot(moveDirection, wallNormal) < 0f)
+        {
+            moveDirection = Vector3.ProjectOnPlane(moveDirection, wallNormal);
+        }
+
+        Vector3 velocity = moveDirection * currentSpeed;
         velocity.y = rb.linearVelocity.y;
         rb.linearVelocity = velocity;
+
+        touchingWall = false;
+    }
+
+    void OnCollisionStay(Collision collision)
+    {
+        foreach (ContactPoint contact in collision.contacts)
+        {
+            if (Mathf.Abs(contact.normal.y) < 0.6f)
+            {
+                wallNormal = contact.normal;
+                touchingWall = true;
+                break;
+            }
+        }
     }
 
     void PlayFootstepSound()

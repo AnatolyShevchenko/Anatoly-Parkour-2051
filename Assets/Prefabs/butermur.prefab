@@ -2146,6 +2146,7 @@ GameObject:
   - component: {fileID: 6152417569419697937}
   - component: {fileID: 1915219812138569043}
   - component: {fileID: 2782617289366714612}
+  - component: {fileID: 649351343232296432}
   m_Layer: 3
   m_Name: butermur
   m_TagString: Untagged
@@ -2255,6 +2256,60 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 2.6470444, y: 0.55933, z: 4.0960717}
   m_Center: {x: 0.18548504, y: 0.08462906, z: -0.02317086}
+--- !u!114 &649351343232296432
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6875386628433408992}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9e715dbfb60993d45b8f387904231a0d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BouncingSausages
+  sausages:
+  - {fileID: 4042813143490087992}
+  - {fileID: 3190581015123987711}
+  - {fileID: 1751189381993715100}
+  - {fileID: 3687783591564098465}
+  - {fileID: 4239042707571568322}
+  - {fileID: 6888867377809713192}
+  - {fileID: 3831398308401936209}
+  - {fileID: 2609962564391506324}
+  - {fileID: 2463035456656102091}
+  - {fileID: 8166915691422772662}
+  - {fileID: 4778011198695324431}
+  - {fileID: 8989169638379865145}
+  - {fileID: 3988026786820286292}
+  - {fileID: 8731059244148745688}
+  - {fileID: 5701752293579101094}
+  - {fileID: 5049238635286178329}
+  - {fileID: 4222638809547247819}
+  - {fileID: 6897305655524273826}
+  - {fileID: 5728429830195294878}
+  - {fileID: 1430476973755120409}
+  - {fileID: 8375106723135800634}
+  - {fileID: 1774727575238137134}
+  - {fileID: 2079523096752222656}
+  - {fileID: 6417628696719819530}
+  mayoMaterial: {fileID: 2100000, guid: b4281117d6e9c6447bf557b2cf1856c5, type: 2}
+  sauceColor: {r: 0.69803923, g: 0.69803923, b: 0.6901961, a: 1}
+  sauceMinSize: 0.003
+  sauceMaxSize: 0.007
+  normalLandingParticles: 6
+  megaLandingParticles: 12
+  maxDrift: 0.25
+  mouseSensitivity: 0.01
+  mouseBounceHeight: 0.1
+  inertiaSmoothness: 8
+  walkMoveSpeed: 0.3
+  walkBounceHeight: 3
+  walkMinTime: 0.02
+  walkMaxTime: 0.12
+  playerJumpBounceHeight: 2
+  playerJumpMoveSpeed: 3.5
+  jellyTiltAmount: 35
 --- !u!1 &7090523873301902466
 GameObject:
   m_ObjectHideFlags: 0
