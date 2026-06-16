@@ -5,7 +5,6 @@ using UnityEngine.UI;
 public class PlayerInventory : MonoBehaviour
 {
     [Header("Окна UI")]
-    // ИЗМЕНЕНО: Сменили тип на GameObject, чтобы Unity принимала абсолютно любой объект (Panel, Image, RawImage)
     public GameObject globalFadeScreen;
     public GameObject inventoryPanel;
 
@@ -55,31 +54,10 @@ public class PlayerInventory : MonoBehaviour
     public bool IsInventoryOpen => isInventoryOpen;
     public bool IsSwitchingItem => isSwitchingItem;
 
-    // Метод очистки слота, который вызывает KotonezItem
+    // Метод ручной очистки активного слота (например, для других предметов)
     public void ClearActiveSlot()
     {
-        // 1. Запоминаем, какой именно предмет Анатолий сейчас держит/ест
-        ItemData itemToRemove = quickSlots[activeQuickSlot];
-
-        // 2. Очищаем текущий активный слот
         quickSlots[activeQuickSlot] = null;
-
-        // 3. БУЛЛЕТПРУФ-ПРОВЕРКА: Если игрок переключил слот во время затухания экрана,
-        // мы все равно находим этот съеденный предмет во ВСЕМ инвентаре и уничтожаем его данные,
-        // чтобы он не остался в рюкзаке или соседних ячейках.
-        if (itemToRemove != null)
-        {
-            for (int i = 0; i < quickSlots.Length; i++)
-            {
-                if (quickSlots[i] == itemToRemove) quickSlots[i] = null;
-            }
-            for (int i = 0; i < backpackSlots.Length; i++)
-            {
-                if (backpackSlots[i] == itemToRemove) backpackSlots[i] = null;
-            }
-        }
-
-        // Обновляем UI, что мгновенно сотрет иконку и уберет трехмерную модельку
         RefreshUI(false);
     }
 
@@ -88,7 +66,6 @@ public class PlayerInventory : MonoBehaviour
     {
         isInputBlockedByTrip = true;
 
-        // Если инвентарь был открыт в момент поглощения — принудительно закрываем его
         if (isInventoryOpen)
         {
             isInventoryOpen = false;
@@ -112,28 +89,21 @@ public class PlayerInventory : MonoBehaviour
             defaultHandPos = handTransform.localPosition;
         }
 
-        // Запоминаем стартовый предмет, чтобы не устраивать анимацию при загрузке игры
         lastActiveItem = quickSlots[activeQuickSlot];
-
-        // Синхронизируем интерфейс и руки на старте
         RefreshUI(true);
     }
 
     void Update()
     {
-        // ГЛОБАЛЬНЫЙ ЗАПРЕТ ВВОДА: Если Анатолий под котонезом — клавиатура и мышь для инвентаря полностью мертвы
         if (isInputBlockedByTrip) return;
 
-        // Открытие/закрытие инвентаря на Tab
         if (Input.GetKeyDown(KeyCode.Tab)) ToggleInventory();
 
-        // Если инвентарь открыт и игрок нажимает Esc — закрываем его
         if (isInventoryOpen && Input.GetKeyDown(KeyCode.Escape))
         {
             ToggleInventory();
         }
 
-        // Блокируем игровой ввод игрока, если открыт инвентарь
         if (isInventoryOpen) return;
 
         if (Input.GetKeyDown(KeyCode.Alpha1)) SelectQuickSlot(0);
@@ -148,13 +118,11 @@ public class PlayerInventory : MonoBehaviour
 
     void SelectQuickSlot(int slotIndex)
     {
-        // Если этот слот уже выбран и в руке что-то есть, или анимация уже идет — игнорируем
         if ((activeQuickSlot == slotIndex && currentInHandObject != null) || isSwitchingItem) return;
 
         StartCoroutine(MinecraftSwitchRoutine(slotIndex));
     }
 
-    // Универсальная Майнкрафт-анимация (Вниз -> Смена -> Вверх)
     private IEnumerator MinecraftSwitchRoutine(int newSlotIndex)
     {
         isSwitchingItem = true;
@@ -162,7 +130,6 @@ public class PlayerInventory : MonoBehaviour
         Vector3 loweredPos = defaultHandPos - new Vector3(0, 0.4f, 0);
         float speed = 12f;
 
-        // 1. Опускаем руку вниз
         float time = 0;
         while (time < 1f)
         {
@@ -172,13 +139,11 @@ public class PlayerInventory : MonoBehaviour
         }
         handTransform.localPosition = loweredPos;
 
-        // 2. ВНИЗУ: Меняем индекс активного слота и перерисовываем
         activeQuickSlot = newSlotIndex;
         RefreshUI(false);
 
         yield return new WaitForSeconds(0.02f);
 
-        // 3. Поднимаем руку вверх
         time = 0;
         while (time < 1f)
         {
@@ -238,7 +203,6 @@ public class PlayerInventory : MonoBehaviour
 
     public void RefreshUI(bool instantSize)
     {
-        // 1. HUD СЛОТЫ
         for (int i = 0; i < hudSlotImages.Length; i++)
         {
             if (hudSlotImages[i] != null)
@@ -261,7 +225,6 @@ public class PlayerInventory : MonoBehaviour
             }
         }
 
-        // 2. РЮКЗАК
         for (int i = 0; i < backpackSlotIcons.Length; i++)
         {
             if (backpackSlotIcons[i] != null)
@@ -278,7 +241,6 @@ public class PlayerInventory : MonoBehaviour
             }
         }
 
-        // 3. ОБНОВЛЕНИЕ ПРЕДМЕТА В РУКЕ
         UpdateItemInHand();
     }
 
@@ -288,36 +250,28 @@ public class PlayerInventory : MonoBehaviour
 
         ItemData activeItem = quickSlots[activeQuickSlot];
 
-        // ==========================================
-        // ГЛОБАЛЬНЫЙ ПЕРЕХВАТЧИК ИЗМЕНЕНИЙ В РУКЕ
-        // ==========================================
         if (activeItem != lastActiveItem)
         {
-            // Если мы НЕ в процессе анимации смены слотов (значит, предмет изменился извне)
             if (!isSwitchingItem)
             {
                 lastActiveItem = activeItem;
 
-                // Если предмет УДАЛИЛИ из руки (выкинули на G или съели) — убираем модельку мгновенно
                 if (activeItem == null)
                 {
                     if (currentInHandObject != null) Destroy(currentInHandObject);
                 }
-                // Если в руку ДОБАВИЛИ новый предмет — запускаем красивую майнкрафт-анимацию подъема!
                 else
                 {
                     StartCoroutine(MinecraftSwitchRoutine(activeQuickSlot));
-                    return; // Прерываем мгновенный спавн, корутина сделает это правильно на дне экрана
+                    return;
                 }
             }
             else
             {
-                // Если мы уже внутри корутины, просто синхронизируем данные
                 lastActiveItem = activeItem;
             }
         }
 
-        // --- Измененный код спавна модельки с учетом смещений ---
         if (currentInHandObject != null)
         {
             Destroy(currentInHandObject);
@@ -327,18 +281,15 @@ public class PlayerInventory : MonoBehaviour
         {
             currentInHandObject = Instantiate(activeItem.itemPrefab, handTransform);
 
-            // ИЗМЕНЕНО: Достаем компонент Image из переданного GameObject и отдаем скрипту майонеза
             KotonezItem kotonezScript = currentInHandObject.GetComponent<KotonezItem>();
             if (kotonezScript != null && globalFadeScreen != null)
             {
                 kotonezScript.fadeScreen = globalFadeScreen.gameObject;
             }
 
-            // Применяем индивидуальные координаты и углы поворота из файла ItemData
             currentInHandObject.transform.localPosition = activeItem.handPositionOffset;
             currentInHandObject.transform.localRotation = Quaternion.Euler(activeItem.handRotationOffset);
 
-            // Убеждаемся, что физика не мешает отображению в руке
             Rigidbody itemRb = currentInHandObject.GetComponent<Rigidbody>();
             if (itemRb != null) itemRb.isKinematic = true;
 
@@ -354,7 +305,7 @@ public class PlayerInventory : MonoBehaviour
             if (quickSlots[i] == null)
             {
                 quickSlots[i] = item;
-                RefreshUI(false); // Вызовет цепочку проверок и плавно поднимет руку!
+                RefreshUI(false);
                 Debug.Log($"[Подобрано] {item.itemName} в быстрый слот №{i + 1}");
                 return true;
             }
@@ -386,5 +337,24 @@ public class PlayerInventory : MonoBehaviour
                 hudSlotImages[i].transform.localScale = Vector3.Lerp(currentScale, Vector3.one * targetScale, Time.deltaTime * scaleSmoothTime);
             }
         }
+    }
+
+    // ИСПРАВЛЕНО И ПРОВЕРЕНО: Точечно очищает данные активного слота и уничтожает банку
+    public void ConsumeSpecificItem(GameObject itemToDestroy)
+    {
+        // 1. Стираем карточку предмета строго в текущем активном слоте
+        quickSlots[activeQuickSlot] = null;
+
+        // 2. Запускаем перерисовку интерфейса (она сотрет иконку)
+        RefreshUI(false);
+
+        // 3. Безопасно уничтожаем физический объект съеденного майонеза
+        if (itemToDestroy != null)
+        {
+            itemToDestroy.transform.SetParent(null);
+            Destroy(itemToDestroy);
+        }
+
+        Debug.Log($"[Инвентарь] КотонеZ успешно съеден из слота №{activeQuickSlot + 1}. Остальные ячейки не тронуты!");
     }
 }

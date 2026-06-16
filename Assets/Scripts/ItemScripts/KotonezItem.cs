@@ -64,12 +64,9 @@ public class KotonezItem : MonoBehaviour
 
     void Update()
     {
-        // ЕСЛИ ПРЕДМЕТ ВЫБРОШЕН (У него нет родителя-руки), ИГНОРИРУЕМ ВСЮ ЛОГИКУ ПОЕДАНИЯ
         if (transform.parent == null) return;
-
         if (isTriggered) return;
 
-        // Перестраховка: если мы в руке, но ссылку на инвентарь почему-то потеряли — пытаемся найти её снова
         if (inventory == null) inventory = GetComponentInParent<PlayerInventory>();
         if (movement == null) movement = GetComponentInParent<PlayerMovement>();
 
@@ -79,7 +76,6 @@ public class KotonezItem : MonoBehaviour
             return;
         }
 
-        // ЗАЖАТИЕ ЛКМ
         if (Input.GetMouseButton(0))
         {
             currentHoldTime += Time.deltaTime;
@@ -99,7 +95,6 @@ public class KotonezItem : MonoBehaviour
             }
         }
 
-        // ОТПУСТИЛ ЛКМ
         if (Input.GetMouseButtonUp(0))
         {
             ResetProgress();
@@ -108,7 +103,6 @@ public class KotonezItem : MonoBehaviour
 
     void ResetProgress()
     {
-        // Сбрасываем позицию только если мы привязаны к руке, чтобы не ломать физику полета
         if (transform.parent != null)
         {
             transform.localPosition = originalLocalPos;
@@ -123,7 +117,6 @@ public class KotonezItem : MonoBehaviour
         isTriggered = true;
         ResetProgress();
 
-        // ВКЛЮЧАЕМ НАМЕРТВУЮ БЛОКИРОВКУ КЛАВИАТУРЫ И МЫШИ ДЛЯ ИНВЕНТАРЯ
         if (inventory != null) inventory.BlockInputForTrip();
 
         Debug.Log("КотонеZ проглочен! Эффекты активированы.");
@@ -150,14 +143,12 @@ public class KotonezItem : MonoBehaviour
             effectTime += Time.deltaTime;
             float progress = effectTime / fadeDuration;
 
-            // 1. Безумное покачивание камеры
             if (camTransform != null)
             {
                 float zTilt = Mathf.Sin(Time.time * 12f) * 15f * (1f - progress);
                 camTransform.localRotation = Quaternion.Euler(camTransform.localRotation.eulerAngles.x, camTransform.localRotation.eulerAngles.y, zTilt);
             }
 
-            // 2. ПЛАВНОЕ ЗАТУХАНИЕ
             if (fadeGraphic != null)
             {
                 Color c = fadeGraphic.color;
@@ -168,7 +159,6 @@ public class KotonezItem : MonoBehaviour
             yield return null;
         }
 
-        // === ИСПРАВЛЕНИЕ МИГАНИЯ СЦЕНЫ ===
         if (fadeGraphic != null)
         {
             Color c = fadeGraphic.color;
@@ -178,22 +168,26 @@ public class KotonezItem : MonoBehaviour
 
         yield return new WaitForEndOfFrame();
 
-        // Очищаем активный слот в инвентаре (логика данных)
-        if (inventory != null) inventory.ClearActiveSlot();
-
-        // ИЗМЕНЕНО: Загружаем сцену аддитивно через глобальный менеджер, чтобы мир сохранился
+        // ИСПРАВЛЕНО: Сначала запускаем аддитивную сцену
         if (GameSceneManager.Instance != null)
         {
-            Debug.Log($"Отправляем Анатолия в трип аддитивно: {targetSceneName}");
             GameSceneManager.Instance.StartParkour(targetSceneName);
         }
         else
         {
-            Debug.LogWarning("GameSceneManager не найден на сцене! Используем обычную перезагрузку сцены.");
             SceneManager.LoadScene(targetSceneName);
         }
 
-        // ПОЛНОЕ УНИЧТОЖЕНИЕ ОБЪЕКТА КОТОНЕЗА ИЗ ПАМЯТИ
-        Destroy(gameObject);
+        // ИСПРАВЛЕНО: Передаем СЕБЯ (конкретный экземпляр) инвентарю на съедение.
+        // Инвентарь удалит только этот конкретный игровой объект, а банку во 2 слоте оставит в покое!
+        if (inventory != null)
+        {
+            inventory.ConsumeSpecificItem(gameObject);
+        }
+        else
+        {
+            // На всякий случай, если инвентарь пропал
+            Destroy(gameObject);
+        }
     }
 }

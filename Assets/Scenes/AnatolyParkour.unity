@@ -870,7 +870,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a3c5ea6c4e71ee04583c77a6b24f32f3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TripTimerManager
-  tripDuration: 90
+  tripDuration: 15
   fadeDuration: 2
   returnSceneName: GameScene
   fadeScreen: {fileID: 1939076335}
