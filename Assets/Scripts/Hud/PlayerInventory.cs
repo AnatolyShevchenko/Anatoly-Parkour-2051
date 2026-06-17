@@ -8,6 +8,9 @@ public class PlayerInventory : MonoBehaviour
     public GameObject globalFadeScreen;
     public GameObject inventoryPanel;
 
+    [Header("Шкала применения (Бублик)")]
+    public Image useProgressCircle;
+
     [Header("Визуальные ячейки HUD (Рамочки быстрых slots)")]
     public Image[] hudSlotImages = new Image[4];
     public Color normalColor = Color.gray;
@@ -54,6 +57,9 @@ public class PlayerInventory : MonoBehaviour
     public bool IsInventoryOpen => isInventoryOpen;
     public bool IsSwitchingItem => isSwitchingItem;
 
+    // Даем доступ внешним скриптам еды к индексу текущего слота
+    public int ActiveQuickSlot => activeQuickSlot;
+
     // Метод ручной очистки активного слота (например, для других предметов)
     public void ClearActiveSlot()
     {
@@ -84,12 +90,22 @@ public class PlayerInventory : MonoBehaviour
         movementScript = GetComponent<PlayerMovement>();
         if (inventoryPanel != null) inventoryPanel.SetActive(false);
 
+        // ЖЕЛЕЗОБЕТОННО: Гарантируем, что черный экран выключен при старте игры
+        if (globalFadeScreen != null)
+        {
+            globalFadeScreen.SetActive(false);
+        }
+
         if (handTransform != null)
         {
             defaultHandPos = handTransform.localPosition;
         }
 
         lastActiveItem = quickSlots[activeQuickSlot];
+
+        // Прячем бублик
+        HideProgressCircle();
+
         RefreshUI(true);
     }
 
@@ -281,10 +297,18 @@ public class PlayerInventory : MonoBehaviour
         {
             currentInHandObject = Instantiate(activeItem.itemPrefab, handTransform);
 
+            // 1. НАСТРОЙКА КОТОНЕZА
             KotonezItem kotonezScript = currentInHandObject.GetComponent<KotonezItem>();
             if (kotonezScript != null && globalFadeScreen != null)
             {
                 kotonezScript.fadeScreen = globalFadeScreen.gameObject;
+            }
+
+            // 2. НАСТРОЙКА ОБЫЧНОЙ ЕДЫ
+            GenericConsumableItem genericFood = currentInHandObject.GetComponent<GenericConsumableItem>();
+            if (genericFood != null)
+            {
+                genericFood.InitializeData(activeItem);
             }
 
             currentInHandObject.transform.localPosition = activeItem.handPositionOffset;
@@ -339,22 +363,44 @@ public class PlayerInventory : MonoBehaviour
         }
     }
 
-    // ИСПРАВЛЕНО И ПРОВЕРЕНО: Точечно очищает данные активного слота и уничтожает банку
+    // Точечно очищает данные активного слота и уничтожает предмет из рук
     public void ConsumeSpecificItem(GameObject itemToDestroy)
     {
-        // 1. Стираем карточку предмета строго в текущем активном слоте
         quickSlots[activeQuickSlot] = null;
-
-        // 2. Запускаем перерисовку интерфейса (она сотрет иконку)
         RefreshUI(false);
 
-        // 3. Безопасно уничтожаем физический объект съеденного майонеза
         if (itemToDestroy != null)
         {
             itemToDestroy.transform.SetParent(null);
             Destroy(itemToDestroy);
         }
 
-        Debug.Log($"[Инвентарь] КотонеZ успешно съеден из слота №{activeQuickSlot + 1}. Остальные ячейки не тронуты!");
+        Debug.Log($"[Инвентарь] Предмет успешно съеден из слота №{activeQuickSlot + 1}. Остальные ячейки не тронуты!");
+    }
+
+    // ИСПРАВЛЕНО: Управляем видимостью бублика через прозрачность (Alpha)
+    public void UpdateProgressCircle(float progress)
+    {
+        if (useProgressCircle != null)
+        {
+            Color c = useProgressCircle.color;
+            c.a = 1f; // Полностью видимый
+            useProgressCircle.color = c;
+
+            useProgressCircle.fillAmount = progress;
+        }
+    }
+
+    // ИСПРАВЛЕНО: Прячем бублик, делая его прозрачным (Alpha = 0)
+    public void HideProgressCircle()
+    {
+        if (useProgressCircle != null)
+        {
+            Color c = useProgressCircle.color;
+            c.a = 0f; // Абсолютно невидимый
+            useProgressCircle.color = c;
+
+            useProgressCircle.fillAmount = 0f;
+        }
     }
 }

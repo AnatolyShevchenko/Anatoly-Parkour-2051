@@ -15,3 +15,9 @@ MonoBehaviour:
   itemName: Topalakes
   itemIcon: {fileID: 21300000, guid: f178c269958e83f4fb2b49cda0ceb00e, type: 3}
   itemPrefab: {fileID: 2558665007144971949, guid: 354ee4a01f6f4d84db28329c43fe5a47, type: 3}
+  handPositionOffset: {x: 0, y: 0, z: 0}
+  handRotationOffset: {x: 0, y: 0, z: 0}
+  isConsumable: 1
+  holdDuration: 1
+  eatingPositionOffset: {x: -0.2, y: -0.15, z: -0.1}
+  consumeSound: {fileID: 0}

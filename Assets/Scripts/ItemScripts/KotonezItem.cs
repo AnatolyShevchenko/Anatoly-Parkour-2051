@@ -25,15 +25,10 @@ public class KotonezItem : MonoBehaviour
     public Vector3 eatingPositionOffset = new Vector3(0, -0.15f, 0.1f);
     private Vector3 originalLocalPos;
 
-    [Header("Ссылки на UI (Инвентарь настроит сам!)")]
-    public GameObject fadeScreen;
-
+    // Ссылки на компоненты игрока (Инвентарь настроит fadeScreen сам при спавне)
+    [HideInInspector] public GameObject fadeScreen;
     private PlayerInventory inventory;
     private PlayerMovement movement;
-
-    // ИСПРАВЛЕНО: Теперь используем Image вместо Slider для эффекта "бублика"
-    private Image uiProgressCircle;
-
     private Graphic fadeGraphic;
     private bool isTriggered = false;
     private AudioSource audioSource;
@@ -52,41 +47,17 @@ public class KotonezItem : MonoBehaviour
             audioSource.clip = eatingLoopSound;
         }
 
-        // ИСПРАВЛЕНО: Ищем наш круглый индикатор по имени UseProgressCircle
-        GameObject circleObj = GameObject.Find("UseProgressCircle");
-        if (circleObj != null)
-        {
-            uiProgressCircle = circleObj.GetComponent<Image>();
-            uiProgressCircle.gameObject.SetActive(false);
-        }
-        else
-        {
-            Debug.LogWarning("[КотонеZ] Не найден UI объект с именем 'UseProgressCircle'!");
-        }
-
-        SetupFadeScreen();
-    }
-
-    private void SetupFadeScreen()
-    {
+        // ИСПРАВЛЕНО: При старте гарантируем, что черный экран выключен и не мешает кликать
         if (fadeScreen != null)
         {
             fadeGraphic = fadeScreen.GetComponent<Graphic>();
-
-            if (fadeGraphic != null)
-            {
-                fadeScreen.SetActive(true);
-                Color c = fadeGraphic.color;
-                c.a = 0f;
-                fadeGraphic.color = c;
-            }
+            fadeScreen.SetActive(false);
         }
     }
 
     void Update()
     {
-        if (transform.parent == null) return;
-        if (isTriggered) return;
+        if (transform.parent == null || isTriggered) return;
 
         if (inventory == null) inventory = GetComponentInParent<PlayerInventory>();
         if (movement == null) movement = GetComponentInParent<PlayerMovement>();
@@ -109,11 +80,9 @@ public class KotonezItem : MonoBehaviour
             float progress = currentHoldTime / holdDuration;
             transform.localPosition = Vector3.Lerp(originalLocalPos, originalLocalPos + eatingPositionOffset, progress);
 
-            // ИСПРАВЛЕНО: Заполняем "бублик" через fillAmount (значение от 0.0f до 1.0f)
-            if (uiProgressCircle != null)
+            if (inventory != null)
             {
-                uiProgressCircle.gameObject.SetActive(true);
-                uiProgressCircle.fillAmount = progress;
+                inventory.UpdateProgressCircle(progress);
             }
 
             if (currentHoldTime >= holdDuration)
@@ -142,18 +111,21 @@ public class KotonezItem : MonoBehaviour
 
         currentHoldTime = 0f;
 
-        // ИСПРАВЛЕНО: Прячем круг при отмене
-        if (uiProgressCircle != null) uiProgressCircle.gameObject.SetActive(false);
+        if (inventory != null)
+        {
+            inventory.HideProgressCircle();
+        }
     }
 
     private IEnumerator TriggerTripRoutine()
     {
         isTriggered = true;
 
-        // Прячем заполняющийся кружок, так как Анатолий уже всё съел
-        if (uiProgressCircle != null) uiProgressCircle.gameObject.SetActive(false);
-
-        if (inventory != null) inventory.BlockInputForTrip();
+        if (inventory != null)
+        {
+            inventory.HideProgressCircle();
+            inventory.BlockInputForTrip();
+        }
 
         Debug.Log("КотонеZ проглочен! Эффекты активированы.");
 
@@ -168,10 +140,16 @@ public class KotonezItem : MonoBehaviour
         Transform camTransform = movement != null ? movement.anatolyCamera : null;
         float effectTime = 0f;
 
+        // ИСПРАВЛЕНО: Включаем объект в иерархии СТРОГО в момент начала трипа
         if (fadeScreen != null)
         {
             fadeScreen.SetActive(true);
             if (fadeGraphic == null) fadeGraphic = fadeScreen.GetComponent<Graphic>();
+
+            // Начинаем с полной прозрачности
+            Color c = fadeGraphic.color;
+            c.a = 0f;
+            fadeGraphic.color = c;
         }
 
         while (effectTime < fadeDuration)
@@ -185,6 +163,7 @@ public class KotonezItem : MonoBehaviour
                 camTransform.localRotation = Quaternion.Euler(camTransform.localRotation.eulerAngles.x, camTransform.localRotation.eulerAngles.y, zTilt);
             }
 
+            // Плавно закрашиваем экран в черный
             if (fadeGraphic != null)
             {
                 Color c = fadeGraphic.color;
